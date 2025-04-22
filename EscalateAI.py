@@ -86,10 +86,36 @@ def show_kanban():
 # ---------------------------------
 st.title("🚨 EscalateAI - Escalation Tracking System")
 
-# Layout: Left for File Upload & Analysis, Right for Kanban Board
+# Layout: Left for Manual Entry & File Upload, Right for Kanban Board
 left_column, right_column = st.columns([1, 3])
 
 with left_column:
+    st.header("✏️ Manual Entry")
+    with st.form(key="manual_entry_form"):
+        customer_name = st.text_input("Customer Name")
+        issue = st.text_area("Issue")
+        criticality = st.selectbox("Criticality", ["Low", "Medium", "High"])
+        impact = st.selectbox("Impact", ["Low", "Medium", "High"])
+        action_owner = st.text_input("Action Owner")
+        date_reported = st.date_input("Date Reported")
+
+        submit_button = st.form_submit_button("Log Escalation")
+
+        if submit_button:
+            if customer_name and issue:
+                sentiment, urgency, escalated = analyze_issue(issue)
+                log_case({
+                    "Customer": customer_name,
+                    "Brief Issue": issue,
+                    "Criticalness": criticality,
+                    "Impact": impact,
+                    "Owner": action_owner,
+                    "Issue reported date": date_reported,
+                }, sentiment, urgency, escalated)
+                st.success("Escalation logged successfully!")
+            else:
+                st.error("Please fill all fields.")
+
     st.header("📥 Upload Escalation Tracker")
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
