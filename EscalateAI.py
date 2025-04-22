@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import random
 import re
 from io import BytesIO
 
@@ -42,19 +41,28 @@ def log_case(row, sentiment, urgency, escalation):
         st.session_state.cases = []
     
     escalation_id = generate_escalation_id()
-    
-    st.session_state.cases.append({
+
+    # Debugging to check the data being passed
+    st.write("Logging case with data: ", row)
+
+    case = {
         "Escalation ID": escalation_id,
-        "Customer": row.get("Customer", "N/A"),
-        "Criticality": row.get("Criticalness", "N/A"),
-        "Issue": row.get("Brief Issue", "N/A"),
+        "Customer": row.get("customer", "N/A"),  # Ensure correct column names
+        "Criticality": row.get("criticalness", "N/A"),
+        "Issue": row.get("brief issue", "N/A"),
         "Sentiment": sentiment,
         "Urgency": urgency,
         "Escalated": escalation,
-        "Date Reported": row.get("Issue reported date", "N/A"),
-        "Owner": row.get("Owner", "N/A"),
-        "Status": row.get("Status", "Open"),
-    })
+        "Date Reported": row.get("issue reported date", "N/A"),
+        "Owner": row.get("owner", "N/A"),
+        "Status": row.get("status", "Open"),
+    }
+
+    # Check if critical fields like Customer, Issue are missing
+    if case["Customer"] == "N/A" or case["Issue"] == "N/A":
+        st.warning(f"Escalation missing required fields: {case['Escalation ID']} will not be logged.")
+    else:
+        st.session_state.cases.append(case)
 
 # ---------------------------------
 # Show Kanban Board with Filters
@@ -133,6 +141,9 @@ with st.sidebar:
         if missing_cols:
             st.error(f"Excel file is missing required columns: {', '.join(missing_cols)}")
         else:
+            # Debugging: Check the columns from the uploaded file
+            st.write("Uploaded columns: ", df.columns)
+
             if st.button("🔍 Analyze Issues & Log Escalations"):
                 for _, row in df.iterrows():
                     sentiment, urgency, escalated = analyze_issue(row["brief issue"])
@@ -175,11 +186,4 @@ if "cases" in st.session_state and st.session_state.cases:
     # Create a BytesIO buffer
     buffer = BytesIO()
     df_cases.to_excel(buffer, index=False, engine="openpyxl")
-    buffer.seek(0)  # Rewind to the beginning
-
-    st.download_button(
-        label="📥 Download Escalations as Excel",
-        data=buffer,
-        file_name="escalations.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    buffer.seek(0)  # Rewind to
