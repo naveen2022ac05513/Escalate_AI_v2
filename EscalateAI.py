@@ -129,11 +129,14 @@ with left_column:
     if file is not None:
         df = pd.read_excel(file)
         
+        # Check that necessary columns exist in the dataframe
         if "Customer" in df.columns and "Issue" in df.columns:
             for _, row in df.iterrows():
                 sentiment, urgency, escalated = analyze_issue(row["Issue"])
                 log_case(row, sentiment, urgency, escalated)
             st.success("Escalations auto-logged from Excel file!")
+        else:
+            st.error("Excel file must contain 'Customer' and 'Issue' columns!")
 
 with right_column:
     show_kanban()
