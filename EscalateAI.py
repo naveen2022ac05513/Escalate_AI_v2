@@ -21,13 +21,24 @@ def analyze_issue(text):
     return sentiment, urgency, escalation
 
 # ---------------------------------
+# Generate Unique Escalation ID in CESI-XXXXXX Format
+# ---------------------------------
+def generate_escalation_id():
+    if "last_id" not in st.session_state:
+        st.session_state.last_id = 0
+    st.session_state.last_id += 1
+    return f"CESI-{st.session_state.last_id:06d}"
+
+# ---------------------------------
 # Logging Escalations
 # ---------------------------------
 def log_case(row, sentiment, urgency, escalation):
     if "cases" not in st.session_state:
         st.session_state.cases = []
 
+    escalation_id = generate_escalation_id()
     st.session_state.cases.append({
+        "ID": escalation_id,
         "Brief Issue": row["brief issue"],
         "Customer": row.get("customer", "N/A"),
         "Reported Date": row.get("issue reported date", "N/A"),
@@ -40,31 +51,61 @@ def log_case(row, sentiment, urgency, escalation):
     })
 
 # ---------------------------------
-# Kanban Board Display
+# Display Kanban Board
 # ---------------------------------
 def show_kanban():
     if "cases" not in st.session_state or not st.session_state.cases:
         st.info("No escalations logged yet.")
         return
 
-    st.subheader("📌 Escalation Kanban Board")
+    st.markdown("## 🗂️ Escalation Kanban Board")
+    st.markdown("### Track issues visually by status")
+
     cols = st.columns(3)
     stages = {"Open": cols[0], "In Progress": cols[1], "Resolved": cols[2]}
 
+    with cols[0]: st.markdown("### 🟡 Open")
+    with cols[1]: st.markdown("### 🟠 In Progress")
+    with cols[2]: st.markdown("### ✅ Resolved")
+
     for i, case in enumerate(st.session_state.cases):
-        with stages[case["Status"]]:
-            st.markdown("----")
-            st.markdown(f"**🧾 Issue: {case['Brief Issue']}**")
-            st.write(f"🔹 Sentiment: `{case['Sentiment']}` | Urgency: `{case['Urgency']}`")
-            st.write(f"📅 Reported: {case['Reported Date']} | 👤 Owner: {case.get('Owner', 'N/A')}")
-            st.write(f"✅ Action Taken: {case.get('Action Taken', 'N/A')}")
-            new_status = st.selectbox(
-                "Update Status",
-                ["Open", "In Progress", "Resolved"],
-                index=["Open", "In Progress", "Resolved"].index(case["Status"]),
-                key=f"{i}_status"
-            )
-            st.session_state.cases[i]["Status"] = new_status
+        status = case["Status"]
+        bg_color = (
+            "#ffe0e0" if case["Escalated"] else
+            "#fff7e6" if case["Urgency"] == "High" else
+            "#e7f6ff"
+        )
+        with stages[status]:
+            with st.container():
+                st.markdown(
+                    f"""
+                    <div style='
+                        background-color: {bg_color};
+                        padding: 15px;
+                        border-radius: 12px;
+                        margin: 10px 0;
+                        box-shadow: 2px 2px 6px rgba(0,0,0,0.1);
+                        font-size: 15px;
+                    '>
+                        <strong>🆔 {case['ID']}</strong><br>
+                        <b>🧾 Issue:</b> {case['Brief Issue']}<br>
+                        <b>🧠 Sentiment:</b> <code>{case['Sentiment']}</code><br>
+                        <b>⚡ Urgency:</b> <code>{case['Urgency']}</code><br>
+                        <b>📅 Reported:</b> {case['Reported Date']}<br>
+                        <b>👤 Owner:</b> {case['Owner']}<br>
+                        <b>🛠️ Action:</b> {case['Action Taken']}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+                new_status = st.selectbox(
+                    "Update Status",
+                    ["Open", "In Progress", "Resolved"],
+                    index=["Open", "In Progress", "Resolved"].index(status),
+                    key=f"{i}_status"
+                )
+                st.session_state.cases[i]["Status"] = new_status
 
 # ---------------------------------
 # UI Header
@@ -130,8 +171,6 @@ with st.sidebar:
 # ---------------------------------
 if file:
     df = pd.read_excel(file)
-
-    # Normalize column names
     df.columns = df.columns.str.strip().str.lower().str.replace(" +", " ", regex=True)
 
     required_cols = {"brief issue"}
@@ -141,14 +180,14 @@ if file:
         st.error("The uploaded Excel file must contain at least a 'brief issue' column.")
     else:
         df["selector"] = df["brief issue"].astype(str)
-        selected = st.selectbox("Select Case", df["selector"])
+        selected = st.selectbox("Select Case from Excel", df["selector"])
         row = df[df["selector"] == selected].iloc[0]
 
         st.subheader("📄 Issue Details")
         for col in df.columns:
             st.write(f"**{col.capitalize()}:** {row.get(col, 'N/A')}")
 
-        if st.button("🔍 Analyze & Log Escalation"):
+        if st.button("🔍 Analyze & Log Selected Case"):
             sentiment, urgency, escalated = analyze_issue(row["brief issue"])
             log_case(row, sentiment, urgency, escalated)
             if escalated:
@@ -160,3 +199,18 @@ if file:
 # Display Kanban Board
 # ---------------------------------
 show_kanban()
+
+# ---------------------------------
+# Export Escalations to Excel
+# ---------------------------------
+if "cases" in st.session_state and st.session_state.cases:
+    df_export = pd.DataFrame(st.session_state.cases)
+
+    st.markdown("---")
+    st.subheader("📤 Export Escalations")
+    st.download_button(
+        label="⬇️ Download Escalations as Excel",
+        data=df_export.to_excel(index=False, engine='openpyxl'),
+        file_name="escalations.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
