@@ -1,9 +1,8 @@
 import streamlit as st
 import pandas as pd
-import random
 import re
 
-# Set page configuration with modern layout
+# Set page configuration
 st.set_page_config(page_title="EscalateAI - Escalation Tracking", layout="wide")
 
 # ---------------------------------
@@ -23,10 +22,15 @@ def analyze_issue(text):
     return sentiment, urgency, escalation
 
 # ---------------------------------
-# Generate Unique Escalation ID
+# Generate Sequential Escalation ID
 # ---------------------------------
+if "escalation_counter" not in st.session_state:
+    st.session_state.escalation_counter = 10000  # Starting from a fixed number
+
 def generate_escalation_id():
-    return f"ESC-{random.randint(10000, 99999)}"
+    escalation_id = f"ESC-{st.session_state.escalation_counter}"
+    st.session_state.escalation_counter += 1  # Increment for the next entry
+    return escalation_id
 
 # ---------------------------------
 # Log Escalation
@@ -39,15 +43,15 @@ def log_case(row, sentiment, urgency, escalation):
     
     st.session_state.cases.append({
         "Escalation ID": escalation_id,
-        "Customer": row.get("customer", "N/A"),
-        "Criticality": row.get("criticalness", "N/A"),
-        "Issue": row.get("brief issue", "N/A"),
+        "Customer": row.get("Customer", "N/A"),
+        "Criticality": row.get("Criticalness", "N/A"),
+        "Issue": row.get("Brief Issue", "N/A"),
         "Sentiment": sentiment,
         "Urgency": urgency,
         "Escalated": escalation,
-        "Date Reported": row.get("issue reported date", "N/A"),
-        "Owner": row.get("owner", "N/A"),
-        "Status": row.get("status", "Open"),
+        "Date Reported": row.get("Issue reported date", "N/A"),
+        "Owner": row.get("Owner", "N/A"),
+        "Status": row.get("Status", "Open"),
     })
 
 # ---------------------------------
@@ -98,7 +102,7 @@ def show_kanban():
 # ---------------------------------
 st.title("🚨 EscalateAI - Escalation Tracking System")
 
-# Sidebar: Excel Upload (Top) & Manual Entry (Bottom)
+# Sidebar: Excel Upload & Manual Entry
 with st.sidebar:
     st.header("📥 Upload Escalation Tracker")
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
