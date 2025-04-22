@@ -65,7 +65,12 @@ def show_kanban():
     stages = {"Open": cols[0], "In Progress": cols[1], "Resolved": cols[2]}
 
     for case in st.session_state.cases:
-        with stages[case["Status"]]:
+        status = case.get("Status", "Open")
+        if status not in stages:
+            st.warning(f"Invalid status detected: {status}. Defaulting to 'Open'.")
+            status = "Open"
+
+        with stages[status]:  
             st.markdown("----")
             st.markdown(f"**🧾 Issue: {case['Issue']}**")
             st.write(f"🔹 Sentiment: `{case['Sentiment']}` | Urgency: `{case['Urgency']}`")
@@ -75,21 +80,38 @@ def show_kanban():
             new_status = st.selectbox(
                 "Update Status",
                 ["Open", "In Progress", "Resolved"],
-                index=["Open", "In Progress", "Resolved"].index(case["Status"]),
+                index=["Open", "In Progress", "Resolved"].index(status),
                 key=f"{case['Escalation ID']}_status"
             )
             
-            case["Status"] = new_status  # Persist changes
+            case["Status"] = new_status  
 
 # ---------------------------------
 # Main App Logic
 # ---------------------------------
 st.title("🚨 EscalateAI - Escalation Tracking System")
 
-# Layout: Left for Manual Entry & File Upload, Right for Kanban Board
-left_column, right_column = st.columns([1, 3])
+# Sidebar: Excel Upload (Top) & Manual Entry (Bottom)
+with st.sidebar:
+    st.header("📥 Upload Escalation Tracker")
+    file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
-with left_column:
+    if file is not None:
+        df = pd.read_excel(file)
+        df.columns = df.columns.str.strip().str.lower().str.replace(" +", " ", regex=True)
+
+        required_cols = {"customer", "brief issue", "issue reported date", "status", "owner"}
+        missing_cols = required_cols - set(df.columns)
+
+        if missing_cols:
+            st.error(f"Excel file is missing required columns: {', '.join(missing_cols)}")
+        else:
+            if st.button("🔍 Analyze Issues & Log Escalations"):
+                for _, row in df.iterrows():
+                    sentiment, urgency, escalated = analyze_issue(row["brief issue"])
+                    log_case(row, sentiment, urgency, escalated)
+                st.success("Escalations auto-logged from Excel file!")
+
     st.header("✏️ Manual Entry")
     with st.form(key="manual_entry_form"):
         customer_name = st.text_input("Customer Name")
@@ -116,30 +138,8 @@ with left_column:
             else:
                 st.error("Please fill all fields.")
 
-    st.header("📥 Upload Escalation Tracker")
-    file = st.file_uploader("Upload Excel File", type=["xlsx"])
-
-    # Allow user to trigger analysis AFTER upload
-    if file is not None:
-        df = pd.read_excel(file)
-
-        # Normalize column names for compatibility
-        df.columns = df.columns.str.strip().str.lower().str.replace(" +", " ", regex=True)
-
-        required_cols = {"customer", "brief issue", "issue reported date", "status", "owner"}
-        missing_cols = required_cols - set(df.columns)
-
-        if missing_cols:
-            st.error(f"Excel file is missing required columns: {', '.join(missing_cols)}")
-        else:
-            if st.button("🔍 Analyze Issues & Log Escalations"):
-                for _, row in df.iterrows():
-                    sentiment, urgency, escalated = analyze_issue(row["brief issue"])
-                    log_case(row, sentiment, urgency, escalated)
-                st.success("Escalations auto-logged from Excel file!")
-
-with right_column:
-    show_kanban()
+# Display Kanban Board
+show_kanban()
 
 # Option to download escalations
 if "cases" in st.session_state and st.session_state.cases:
