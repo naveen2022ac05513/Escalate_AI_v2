@@ -3,7 +3,7 @@ import pandas as pd
 import random
 from datetime import datetime
 
-# Set Page Configuration
+# Set page configuration
 st.set_page_config(page_title="EscalateAI - Escalation Tracking System", layout="wide")
 
 # ---------------------------------
@@ -20,9 +20,8 @@ def analyze_issue(text):
         "displeased", "rejected", "denied", "not satisfied", "unresolved", "unresponsive",
         "unreliable", "subpar", "unstable", "negative impact", "setback", "annoyed", "frustrating",
         "non-compliance", "broken", "inconvenience", "defective", "overdue", "escalation", "no progress",
-        "dissatisfaction", "failure", "leakage", "damage", "burnt", "tripped", "degradation", "breakdown",
-        "corrosion", "flashover", "faulty", "defective", "shortage", "mismatch", "delay", "critical",
-        "escalated", "dispute", "unresolved", "risk"
+        "leakage", "damage", "burnt", "tripped", "degradation", "breakdown", "corrosion", "flashover",
+        "faulty", "shortage", "mismatch", "critical", "escalated", "dispute", "risk"
     ]
     
     sentiment = "Negative" if any(word in text_lower for word in negative_words) else "Positive"
@@ -40,7 +39,7 @@ def generate_escalation_id():
     return f"SESICE-{random.randint(10000, 99999)}"
 
 # ---------------------------------
-# Logging Escalations
+# Log Escalation
 # ---------------------------------
 def log_case(row, sentiment, urgency, escalation):
     if "cases" not in st.session_state:
@@ -50,18 +49,18 @@ def log_case(row, sentiment, urgency, escalation):
 
     st.session_state.cases.append({
         "Escalation ID": escalation_id,
-        "Customer": row.get("customer", "N/A"),
-        "Issue": row["brief issue"],
+        "Customer": row.get("Customer", "N/A"),
+        "Issue": row.get("Issue", "N/A"),
         "Sentiment": sentiment,
         "Urgency": urgency,
         "Escalated": escalation,
-        "Date Reported": row.get("reported date", "N/A"),
-        "Action Owner": row.get("action owner", "N/A"),
+        "Date Reported": row.get("Date Reported", "N/A"),
+        "Action Owner": row.get("Action Owner", "N/A"),
         "Status": "Open",  # Default to Open
     })
 
 # ---------------------------------
-# Show Kanban
+# Show Kanban Board with Graphics
 # ---------------------------------
 def show_kanban():
     if "cases" not in st.session_state or not st.session_state.cases:
@@ -115,16 +114,26 @@ with left_column:
             if customer_name and issue:
                 sentiment, urgency, escalated = analyze_issue(issue)
                 log_case({
-                    "customer": customer_name,
-                    "brief issue": issue,
-                    "criticality": criticality,
-                    "impact": impact,
-                    "action owner": action_owner,
-                    "reported date": date_reported,
+                    "Customer": customer_name,
+                    "Issue": issue,
+                    "Criticality": criticality,
+                    "Impact": impact,
+                    "Action Owner": action_owner,
+                    "Date Reported": date_reported,
                 }, sentiment, urgency, escalated)
                 st.success("Escalation logged successfully!")
             else:
                 st.error("Please fill all fields.")
+
+    # Handle Excel Upload and Auto-Logging
+    if file is not None:
+        df = pd.read_excel(file)
+        
+        if "Customer" in df.columns and "Issue" in df.columns:
+            for _, row in df.iterrows():
+                sentiment, urgency, escalated = analyze_issue(row["Issue"])
+                log_case(row, sentiment, urgency, escalated)
+            st.success("Escalations auto-logged from Excel file!")
 
 with right_column:
     show_kanban()
