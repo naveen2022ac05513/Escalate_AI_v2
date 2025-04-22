@@ -139,38 +139,42 @@ if file:
                 st.success("Logged without escalation.")
 
 # Manual Entry Form
-st.subheader("📝 Manual Entry - Log Escalation")
-with st.form(key="manual_entry_form"):
-    customer_name = st.text_input("Customer Name")
-    brief_issue = st.text_area("Brief Issue")
-    criticality = st.selectbox("Criticality", ["Low", "Medium", "High"])
-    impact = st.selectbox("Impact", ["Low", "Medium", "High"])
-    action_owner = st.text_input("Action Owner")
-    date_reported = st.date_input("Date Reported")
+col1, col2 = st.columns([1, 2])  # Create two columns (1 for manual entry, 2 for Kanban board)
 
-    submit_button = st.form_submit_button(label="Submit Issue")
-    
-    if submit_button:
-        if customer_name and brief_issue and action_owner:
-            sentiment, urgency, escalated = analyze_issue(brief_issue)
-            row = {
-                "customer": customer_name,
-                "brief issue": brief_issue,
-                "issue reported date": str(date_reported),
-                "action taken": "Pending",
-                "owner": action_owner,
-                "status": "Open"
-            }
-            log_case(row, sentiment, urgency, escalated)
-            if escalated:
-                st.warning("🚨 Escalation Triggered!")
+with col1:
+    st.subheader("📝 Manual Entry - Log Escalation")
+    with st.form(key="manual_entry_form"):
+        customer_name = st.text_input("Customer Name")
+        brief_issue = st.text_area("Brief Issue")
+        criticality = st.selectbox("Criticality", ["Low", "Medium", "High"])
+        impact = st.selectbox("Impact", ["Low", "Medium", "High"])
+        action_owner = st.text_input("Action Owner")
+        date_reported = st.date_input("Date Reported")
+
+        submit_button = st.form_submit_button(label="Submit Issue")
+
+        if submit_button:
+            if customer_name and brief_issue and action_owner:
+                sentiment, urgency, escalated = analyze_issue(brief_issue)
+                row = {
+                    "customer": customer_name,
+                    "brief issue": brief_issue,
+                    "issue reported date": str(date_reported),
+                    "action taken": "Pending",
+                    "owner": action_owner,
+                    "status": "Open"
+                }
+                log_case(row, sentiment, urgency, escalated)
+                if escalated:
+                    st.warning("🚨 Escalation Triggered!")
+                else:
+                    st.success("Logged without escalation.")
             else:
-                st.success("Logged without escalation.")
-        else:
-            st.error("Please fill in all required fields!")
+                st.error("Please fill in all required fields!")
 
-# Show Kanban board
-show_kanban()
+with col2:
+    # Show Kanban board
+    show_kanban()
 
 # Download Excel button
 download_excel()
