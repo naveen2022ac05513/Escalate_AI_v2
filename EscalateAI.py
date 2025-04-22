@@ -1,93 +1,90 @@
 import streamlit as st
 import pandas as pd
-import random
 import io
+import random
+from datetime import datetime
 
 # Set Page Configuration
 st.set_page_config(page_title="EscalateAI", layout="wide")
 
-# Define the list of negative sentiment words and phrases
-negative_words = [
-    "problematic", "delay", "issue", "failure", "dissatisfaction", "horrible", "frustration", 
-    "unacceptable", "terrible", "mistake", "disappointed", "angry", "complaint", "unhappy", 
-    "regret", "worst", "lost", "trouble", "missed", "irritated", "displeased", "rejected", 
-    "denied", "not satisfied", "unresolved", "unresponsive", "unreliable", "subpar", "unstable", 
-    "negative impact", "setback", "annoyed", "frustrating", "non-compliance", "broken", 
-    "inconvenience", "defective", "overdue", "escalation", "no progress"
-]
-
-negative_phrases = [
-    "this is unacceptable", "not up to the mark", "we are disappointed with", "this has caused a delay",
-    "it’s not working as expected", "this is a huge inconvenience", "we are dissatisfied with", 
-    "the system failed to", "the response was inadequate", "we are experiencing issues"
-]
-
 # ---------------------------------
-# NLP-Based Issue Analysis
+# Helper Functions
 # ---------------------------------
 def analyze_issue(text):
-    # Convert text to lowercase for consistent comparison
     text_lower = text.lower()
 
-    # Check for negative sentiment by looking for the words and phrases in the text
-    sentiment = "Negative" if any(word in text_lower for word in negative_words) or any(phrase in text_lower for phrase in negative_phrases) else "Positive"
-
-    # Determine urgency based on specific keywords
+    # Sentiment analysis based on negative words
+    negative_words = [
+        "problematic", "delay", "issue", "failure", "dissatisfaction", "horrible",
+        "frustration", "unacceptable", "terrible", "mistake", "disappointed", "angry",
+        "complaint", "unhappy", "regret", "worst", "lost", "trouble", "missed", "irritated",
+        "displeased", "rejected", "denied", "not satisfied", "unresolved", "unresponsive",
+        "unreliable", "subpar", "unstable", "negative impact", "setback", "annoyed", "frustrating",
+        "non-compliance", "broken", "inconvenience", "defective", "overdue", "escalation", "no progress"
+    ]
+    
+    sentiment = "Negative" if any(word in text_lower for word in negative_words) else "Positive"
+    
     urgency = "High" if any(word in text_lower for word in ["urgent", "critical", "immediately", "business impact"]) else "Low"
-
-    # Define escalation condition based on negative sentiment and high urgency
+    
     escalation = sentiment == "Negative" and urgency == "High"
+    
     return sentiment, urgency, escalation
 
-# ---------------------------------
-# Logging Escalations
-# ---------------------------------
+
 def log_case(row, sentiment, urgency, escalation):
     if "cases" not in st.session_state:
         st.session_state.cases = []
-
-    escalation_id = f"SESICE-{str(random.randint(10000, 99999))}"
-
+    
+    escalation_id = f"SESICE-{random.randint(10000, 99999)}"
+    
     st.session_state.cases.append({
         "Escalation ID": escalation_id,
         "Customer": row["customer"],
         "Brief Issue": row["brief issue"],
-        "Reported Date": row.get("issue reported date", "N/A"),
-        "Action Taken": row.get("action taken", "N/A"),
-        "Owner": row.get("owner", "N/A"),
-        "Status": row.get("status", "Open"),
+        "Issue Reported Date": row["issue reported date"],
+        "Action Taken": row["action taken"],
+        "Owner": row["owner"],
+        "Status": row["status"],
         "Sentiment": sentiment,
         "Urgency": urgency,
         "Escalated": escalation,
     })
+
 
 def show_kanban():
     if "cases" not in st.session_state or not st.session_state.cases:
         st.info("No escalations logged yet.")
         return
 
-    st.subheader("📌 Escalation Kanban Board")
-    cols = st.columns(3)
-    stages = {"Open": cols[0], "In Progress": cols[1], "Resolved": cols[2]}
+    st.subheader("🗂️ **Escalation Kanban Board**")
 
-    for i, case in enumerate(st.session_state.cases):
-        with stages[case["Status"]]:
-            st.markdown("----")
+    # Create columns for different stages in the Kanban with graphical labels
+    cols = st.columns(3)
+    stages = {
+        "Open": {"column": cols[0], "color": "yellow", "label": "🟡 Open"},
+        "In Progress": {"column": cols[1], "color": "orange", "label": "🟠 In Progress"},
+        "Resolved": {"column": cols[2], "color": "green", "label": "✅ Resolved"}
+    }
+
+    for case in st.session_state.cases:
+        with stages[case["Status"]]["column"]:
+            st.markdown(f"#### {stages[case['Status']]['label']}")
             st.markdown(f"**🧾 Issue: {case['Brief Issue']}**")
             st.write(f"🔹 Sentiment: `{case['Sentiment']}` | Urgency: `{case['Urgency']}`")
-            st.write(f"📅 Reported: {case['Reported Date']} | 👤 Owner: {case.get('Owner', 'N/A')}")
+            st.write(f"📅 Reported: {case['Issue Reported Date']} | 👤 Owner: {case.get('Owner', 'N/A')}")
             st.write(f"✅ Action Taken: {case.get('Action Taken', 'N/A')}")
             new_status = st.selectbox(
                 "Update Status",
                 ["Open", "In Progress", "Resolved"],
                 index=["Open", "In Progress", "Resolved"].index(case["Status"]),
-                key=f"{i}_status"
+                key=f"{case['Escalation ID']}_status"
             )
-            st.session_state.cases[i]["Status"] = new_status
+            if new_status != case["Status"]:
+                case["Status"] = new_status  # Update the status
+                st.experimental_rerun()  # Rerun the app to reflect status changes
 
-# ---------------------------------
-# Download Excel Functionality
-# ---------------------------------
+
 def download_excel():
     if "cases" in st.session_state and st.session_state.cases:
         df_export = pd.DataFrame(st.session_state.cases)
@@ -98,51 +95,31 @@ def download_excel():
             label="Download Escalation Data",
             data=towrite,
             file_name="escalations.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
         )
+
 
 # ---------------------------------
 # Main App Logic
 # ---------------------------------
-st.title("🚨 EscalateAI - Generic Escalation Tracking")
+st.markdown('<h1 style="text-align: center; color: #2F4F4F;">🚨 **EscalateAI - Escalation Tracking System**</h1>', unsafe_allow_html=True)
 
-with st.sidebar:
-    st.header("📥 Upload Escalation Tracker")
-    file = st.file_uploader("Upload Excel File", type=["xlsx"])
+# Upload and Manual Entry Form Layout
+col1, col2 = st.columns([2, 1])  # Create two columns (2 for upload and kanban, 1 for manual entry)
 
-if file:
-    df = pd.read_excel(file)
-
-    # Normalize column names: Remove extra spaces, convert to lowercase for comparison
-    df.columns = df.columns.str.strip().str.lower().str.replace(" +", " ", regex=True)
-
-    required_cols = {"brief issue", "customer", "issue reported date", "action taken", "owner"}
-    missing_cols = required_cols - set(df.columns)
-
-    if missing_cols:
-        st.error(f"The uploaded Excel file is missing the following columns: {', '.join(missing_cols)}")
-    else:
-        df["selector"] = df["brief issue"].astype(str)
-        selected = st.selectbox("Select Case", df["selector"])
-        row = df[df["selector"] == selected].iloc[0]
-
-        st.subheader("📄 Issue Details")
-        for col in df.columns:
-            st.write(f"**{col.capitalize()}:** {row.get(col, 'N/A')}")
-
-        if st.button("🔍 Analyze & Log Escalation"):
-            sentiment, urgency, escalated = analyze_issue(row["brief issue"])
-            log_case(row, sentiment, urgency, escalated)
-            if escalated:
-                st.warning("🚨 Escalation Triggered!")
-            else:
-                st.success("Logged without escalation.")
-
-# Manual Entry Form
-col1, col2 = st.columns([1, 2])  # Create two columns (1 for manual entry, 2 for Kanban board)
-
+# Upload Excel Tracker
 with col1:
-    st.subheader("📝 Manual Entry - Log Escalation")
+    st.subheader("📤 **Upload Escalation Tracker**")
+    uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx"])
+    if uploaded_file is not None:
+        df = pd.read_excel(uploaded_file, engine='openpyxl')
+        st.write(df)
+        download_excel()
+
+# Manual Entry Form underneath the upload section
+with col2:
+    st.subheader("📝 **Manual Entry - Log Escalation**")
     with st.form(key="manual_entry_form"):
         customer_name = st.text_input("Customer Name")
         brief_issue = st.text_area("Brief Issue")
@@ -165,17 +142,9 @@ with col1:
                     "status": "Open"
                 }
                 log_case(row, sentiment, urgency, escalated)
-                if escalated:
-                    st.warning("🚨 Escalation Triggered!")
-                else:
-                    st.success("Logged without escalation.")
-            else:
-                st.error("Please fill in all required fields!")
 
-with col2:
-    # Show Kanban board
-    show_kanban()
+# Display Kanban Board
+show_kanban()
 
-# Download Excel button
+# Download Button
 download_excel()
-
