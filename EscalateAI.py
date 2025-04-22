@@ -35,24 +35,27 @@ def generate_escalation_id():
 # ---------------------------------
 # Log Escalation
 # ---------------------------------
-def log_case(row, sentiment, urgency, escalation):
+def log_case(row, sentiment, urgency, escalated):
     if "cases" not in st.session_state:
         st.session_state.cases = []
 
     escalation_id = generate_escalation_id()
 
-    st.session_state.cases.append({
+    # Ensure that all necessary fields are checked for manual entry and file upload
+    case = {
         "Escalation ID": escalation_id,
         "Customer": row.get("Customer", "N/A"),
         "Criticality": row.get("Criticalness", "N/A"),
         "Issue": row.get("Brief Issue", "N/A"),
         "Sentiment": sentiment,
         "Urgency": urgency,
-        "Escalated": escalation,
+        "Escalated": escalated,
         "Date Reported": row.get("Issue reported date", "N/A"),
         "Owner": row.get("Owner", "N/A"),
         "Status": row.get("Status", "Open"),
-    })
+    }
+
+    st.session_state.cases.append(case)
 
 # ---------------------------------
 # Show Kanban Board with Filtering Option
@@ -126,10 +129,6 @@ with st.sidebar:
     if file is not None:
         df = pd.read_excel(file)
         df.columns = df.columns.str.strip().str.lower().str.replace(" +", " ", regex=True)
-
-        # Display the uploaded data for verification
-        st.write("### Uploaded Data Preview")
-        st.dataframe(df)
 
         required_cols = {"customer", "brief issue", "issue reported date", "status", "owner", "criticalness"}
         missing_cols = required_cols - set(df.columns)
