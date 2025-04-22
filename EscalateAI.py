@@ -138,6 +138,7 @@ st.title("🚨 EscalateAI - Generic Escalation Tracking")
 with st.sidebar:
     st.header("📥 Upload Escalation Tracker")
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
+    customer_issue = st.text_area("Enter Customer Issue", height=150)
 
 if file:
     df = pd.read_excel(file)
@@ -166,6 +167,16 @@ if file:
                 st.warning("🚨 Escalation Triggered!")
             else:
                 st.success("Logged without escalation.")
+
+elif customer_issue:
+    if st.button("🔍 Analyze & Log Escalation"):
+        sentiment, urgency, escalated = analyze_issue(customer_issue)
+        # Here, you would log the escalation for the entered issue
+        log_case({"brief issue": customer_issue}, sentiment, urgency, escalated)
+        if escalated:
+            st.warning("🚨 Escalation Triggered!")
+        else:
+            st.success("Logged without escalation.")
 
 # Show Kanban board
 show_kanban()
