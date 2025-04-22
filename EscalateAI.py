@@ -55,7 +55,7 @@ def log_case(row, sentiment, urgency, escalation):
     })
 
 # ---------------------------------
-# Show Kanban Board with Counts
+# Show Kanban Board with Correct Ordering
 # ---------------------------------
 def show_kanban():
     if "cases" not in st.session_state or not st.session_state.cases:
@@ -70,15 +70,16 @@ def show_kanban():
     }
 
     st.subheader(f"🗂️ Escalation Kanban Board (Open: {status_counts['Open']} | In Progress: {status_counts['In Progress']} | Resolved: {status_counts['Resolved']})")
-    
-    cols = st.columns(3)
-    stages = {"Open": cols[0], "In Progress": cols[1], "Resolved": cols[2]}
+
+    # Create columns in the order: Open → In Progress → Resolved
+    col_open, col_progress, col_resolved = st.columns(3)
+    stages = {"Open": col_open, "In Progress": col_progress, "Resolved": col_resolved}
 
     for case in st.session_state.cases:
         status = case.get("Status", "Open")
         if status not in stages:
-            status = "Open"  # Default to Open for any invalid status
-        
+            status = "Open"  # Default to Open if an invalid status is found
+
         with stages[status]:  
             st.markdown("----")
             st.markdown(f"**🔷 Escalation ID: {case['Escalation ID']}**")
@@ -95,7 +96,7 @@ def show_kanban():
                 key=f"{case['Escalation ID']}_status"
             )
             
-            case["Status"] = new_status  # Move case to the correct bucket when status changes
+            case["Status"] = new_status  # Update status in session state
 
 # ---------------------------------
 # Main App Logic
@@ -149,7 +150,7 @@ with st.sidebar:
             else:
                 st.error("Please fill all fields.")
 
-# Display Kanban Board with Counts
+# Display Kanban Board
 show_kanban()
 
 # Option to download escalations
