@@ -41,17 +41,17 @@ def log_case(row, sentiment, urgency, escalated):
 
     escalation_id = generate_escalation_id()
 
-    # Ensure that all necessary fields are checked for manual entry and file upload
+    # Ensure proper key extraction
     case = {
         "Escalation ID": escalation_id,
-        "Customer": row.get("Customer", "N/A"),
-        "Criticality": row.get("Criticalness", "N/A"),
-        "Issue": row.get("Brief Issue", "N/A"),
+        "Customer": row.get("Customer", row.get("customer", "Unknown")),  # Handling column variations
+        "Criticality": row.get("Criticalness", row.get("criticalness", "Unknown")),
+        "Issue": row.get("Brief Issue", row.get("brief issue", "Unknown")),
         "Sentiment": sentiment,
         "Urgency": urgency,
         "Escalated": escalated,
-        "Date Reported": row.get("Issue reported date", "N/A"),
-        "Owner": row.get("Owner", "N/A"),
+        "Date Reported": row.get("Issue reported date", row.get("Date Reported", "Unknown")),
+        "Owner": row.get("Owner", row.get("owner", "Unknown")),
         "Status": row.get("Status", "Open"),
     }
 
@@ -60,40 +60,27 @@ def log_case(row, sentiment, urgency, escalated):
     st.session_state.cases.append(case)
 
 # ---------------------------------
-# Show Kanban Board with Filtering Option
+# Show Kanban Board with Correct Buckets
 # ---------------------------------
 def show_kanban():
     if "cases" not in st.session_state or not st.session_state.cases:
         st.info("No escalations logged yet.")
         return
 
-    # Filter cases by Criticality and Escalated status
-    criticality_filter = st.selectbox("Filter by Criticality", ["All", "Low", "Medium", "High"], key="criticality_filter")
-    escalated_filter = st.selectbox("Filter by Escalated", ["All", "True", "False"], key="escalated_filter")
-
-    filtered_cases = st.session_state.cases
-
-    if criticality_filter != "All":
-        filtered_cases = [case for case in filtered_cases if case["Criticality"] == criticality_filter]
-
-    if escalated_filter != "All":
-        escalated_status = escalated_filter == "True"
-        filtered_cases = [case for case in filtered_cases if case["Escalated"] == escalated_status]
-
     # Count cases by status
     status_counts = {
-        "Open": sum(1 for case in filtered_cases if case["Status"] == "Open"),
-        "In Progress": sum(1 for case in filtered_cases if case["Status"] == "In Progress"),
-        "Resolved": sum(1 for case in filtered_cases if case["Status"] == "Resolved"),
+        "Open": sum(1 for case in st.session_state.cases if case["Status"] == "Open"),
+        "In Progress": sum(1 for case in st.session_state.cases if case["Status"] == "In Progress"),
+        "Resolved": sum(1 for case in st.session_state.cases if case["Status"] == "Resolved"),
     }
 
     st.subheader(f"🗂️ Escalation Kanban Board (Open: {status_counts['Open']} | In Progress: {status_counts['In Progress']} | Resolved: {status_counts['Resolved']})")
 
-    # Create columns in the order: Open → In Progress → Resolved
+    # Explicitly define three buckets
     col_open, col_progress, col_resolved = st.columns(3)
     stages = {"Open": col_open, "In Progress": col_progress, "Resolved": col_resolved}
 
-    for case in filtered_cases:
+    for case in st.session_state.cases:
         status = case.get("Status", "Open")
         if status not in stages:
             status = "Open"  # Default to Open if an invalid status is found
