@@ -42,6 +42,7 @@ def log_case(row, sentiment, urgency, escalation):
     
     escalation_id = generate_escalation_id()
 
+    # Removed the print statement here to prevent logging case data in sidebar
     case = {
         "Escalation ID": escalation_id,
         "Customer": row.get("customer", "N/A"),  # Ensure correct column names
@@ -104,6 +105,8 @@ def show_kanban():
             st.markdown(f"**🧾 Issue: {case['Issue']}**")
             st.write(f"👤 **Customer**: `{case['Customer']}`")
             st.write(f"🔥 **Criticality**: `{case['Criticality']}`")
+            # Exclude Date Reported from Kanban display
+            # st.write(f"📅 Reported: `{case['Date Reported']}`")
             st.write(f"👤 **Owner**: `{case.get('Owner', 'N/A')}`")
             st.write(f"✅ Escalated: `{case['Escalated']}`")
 
