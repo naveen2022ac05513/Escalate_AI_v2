@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import random
 import re
 from io import BytesIO
 
@@ -42,8 +43,7 @@ def log_case(row, sentiment, urgency, escalation):
     
     escalation_id = generate_escalation_id()
     
-    # Ensure all required fields exist before appending
-    case = {
+    st.session_state.cases.append({
         "Escalation ID": escalation_id,
         "Customer": row.get("Customer", "N/A"),
         "Criticality": row.get("Criticalness", "N/A"),
@@ -54,13 +54,7 @@ def log_case(row, sentiment, urgency, escalation):
         "Date Reported": row.get("Issue reported date", "N/A"),
         "Owner": row.get("Owner", "N/A"),
         "Status": row.get("Status", "Open"),
-    }
-
-    # Check if critical fields like Customer, Issue are missing
-    if case["Customer"] == "N/A" or case["Issue"] == "N/A":
-        st.warning(f"Escalation missing required fields: {case['Escalation ID']} will not be logged.")
-    else:
-        st.session_state.cases.append(case)
+    })
 
 # ---------------------------------
 # Show Kanban Board with Filters
