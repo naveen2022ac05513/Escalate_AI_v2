@@ -186,4 +186,10 @@ if "cases" in st.session_state and st.session_state.cases:
     # Create a BytesIO buffer
     buffer = BytesIO()
     df_cases.to_excel(buffer, index=False, engine="openpyxl")
-    buffer.seek(0)  # Rewind to
+    buffer.seek(0)  # Rewind to start
+    st.download_button(
+        label="Download Escalations as Excel",
+        data=buffer,
+        file_name="escalations.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
