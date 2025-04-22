@@ -138,7 +138,15 @@ st.title("🚨 EscalateAI - Generic Escalation Tracking")
 with st.sidebar:
     st.header("📥 Upload Escalation Tracker")
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
-    customer_issue = st.text_area("Enter Customer Issue", height=150)
+    
+    # Manual Entry Fields
+    st.header("📋 Manual Entry")
+    brief_issue = st.text_area("Enter Customer Issue", height=150)
+    customer_name = st.text_input("Customer Name")
+    action_taken = st.text_area("Action Taken", height=100)
+    owner = st.text_input("Owner")
+    reported_date = st.date_input("Issue Reported Date", value=pd.to_datetime('today'))
+    status = st.selectbox("Issue Status", ["Open", "In Progress", "Resolved"])
 
 if file:
     df = pd.read_excel(file)
@@ -168,11 +176,18 @@ if file:
             else:
                 st.success("Logged without escalation.")
 
-elif customer_issue:
+elif brief_issue:  # Manual Entry Section
     if st.button("🔍 Analyze & Log Escalation"):
-        sentiment, urgency, escalated = analyze_issue(customer_issue)
-        # Here, you would log the escalation for the entered issue
-        log_case({"brief issue": customer_issue}, sentiment, urgency, escalated)
+        row = {
+            "brief issue": brief_issue,
+            "customer": customer_name,
+            "action taken": action_taken,
+            "owner": owner,
+            "issue reported date": str(reported_date),
+            "status": status,
+        }
+        sentiment, urgency, escalated = analyze_issue(brief_issue)
+        log_case(row, sentiment, urgency, escalated)
         if escalated:
             st.warning("🚨 Escalation Triggered!")
         else:
