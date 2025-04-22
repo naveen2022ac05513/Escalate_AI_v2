@@ -10,19 +10,22 @@ st.set_page_config(page_title="EscalateAI - Escalation Tracking", layout="wide")
 # ---------------------------------
 def analyze_issue(text):
     text_lower = text.lower()
+    
     negative_words = [
         r"\b(problematic|delay|issue|failure|dissatisfaction|frustration|unacceptable|mistake|complaint|unresolved|unresponsive|unstable|broken|defective|overdue|escalation|leakage|damage|burnt|critical|risk|dispute|faulty)\b"
     ]
+    
     sentiment = "Negative" if any(re.search(word, text_lower) for word in negative_words) else "Positive"
     urgency = "High" if any(word in text_lower for word in ["urgent", "critical", "immediately", "business impact"]) else "Low"
     escalation = sentiment == "Negative" and urgency == "High"
+    
     return sentiment, urgency, escalation
 
 # ---------------------------------
 # Generate Sequential Escalation ID
 # ---------------------------------
 if "escalation_counter" not in st.session_state:
-    st.session_state.escalation_counter = 10000
+    st.session_state.escalation_counter = 10000  # Starting number
 
 def generate_escalation_id():
     escalation_id = f"ESC-{st.session_state.escalation_counter}"
@@ -35,20 +38,20 @@ def generate_escalation_id():
 def log_case(row, sentiment, urgency, escalation):
     if "cases" not in st.session_state:
         st.session_state.cases = []
-
+    
     escalation_id = generate_escalation_id()
-
+    
     st.session_state.cases.append({
         "Escalation ID": escalation_id,
-        "Customer": row.get("Customer", "N/A"),
-        "Criticality": row.get("Criticalness", "N/A"),
-        "Issue": row.get("Brief Issue", "N/A"),
+        "Customer": row.get("customer", "N/A"),
+        "Criticality": row.get("criticalness", "N/A"),
+        "Issue": row.get("brief issue", "N/A"),
         "Sentiment": sentiment,
         "Urgency": urgency,
         "Escalated": escalation,
-        "Date Reported": row.get("Issue reported date", "N/A"),
-        "Owner": row.get("Owner", "N/A"),
-        "Status": row.get("Status", "Open"),
+        "Date Reported": row.get("issue reported date", "N/A"),
+        "Owner": row.get("owner", "N/A"),
+        "Status": row.get("status", "Open"),
     })
 
 # ---------------------------------
@@ -59,60 +62,53 @@ def show_kanban():
         st.info("No escalations logged yet.")
         return
 
-    st.subheader("\ud83d\udcca Filter Escalations")
-    with st.expander("Filter Options", expanded=True):
-        col1, col2 = st.columns(2)
+    # Filters
+    st.sidebar.markdown("### 🧰 Filters")
+    selected_criticality = st.sidebar.multiselect(
+        "Filter by Criticality",
+        options=["Low", "Medium", "High"],
+        default=["Low", "Medium", "High"]
+    )
+    escalated_filter = st.sidebar.radio(
+        "Escalated Only?",
+        options=["All", "Yes", "No"],
+        index=0
+    )
 
-        with col1:
-            selected_criticality = st.multiselect(
-                "Select Criticality",
-                options=["Low", "Medium", "High"],
-                default=["Low", "Medium", "High"]
-            )
-        with col2:
-            selected_escalated = st.radio(
-                "Escalated Only?",
-                options=["All", "Yes", "No"],
-                index=0,
-                horizontal=True
-            )
+    def apply_filters(case):
+        crit_ok = case["Criticality"] in selected_criticality
+        esc_ok = (
+            escalated_filter == "All"
+            or (escalated_filter == "Yes" and case["Escalated"])
+            or (escalated_filter == "No" and not case["Escalated"])
+        )
+        return crit_ok and esc_ok
 
-    filtered_cases = []
-    for case in st.session_state.cases:
-        if case["Criticality"] not in selected_criticality:
-            continue
-        if selected_escalated == "Yes" and not case["Escalated"]:
-            continue
-        if selected_escalated == "No" and case["Escalated"]:
-            continue
-        filtered_cases.append(case)
+    filtered_cases = [case for case in st.session_state.cases if apply_filters(case)]
 
+    # Count cases by status
     status_counts = {
         "Open": sum(1 for case in filtered_cases if case["Status"] == "Open"),
         "In Progress": sum(1 for case in filtered_cases if case["Status"] == "In Progress"),
         "Resolved": sum(1 for case in filtered_cases if case["Status"] == "Resolved"),
     }
 
-    st.subheader(
-        f"\ud83d\uddc2\ufe0f Escalation Kanban Board (Open: {status_counts['Open']} | "
-        f"In Progress: {status_counts['In Progress']} | Resolved: {status_counts['Resolved']})"
-    )
+    st.subheader(f"Escalation Kanban Board (Open: {status_counts['Open']} | In Progress: {status_counts['In Progress']} | Resolved: {status_counts['Resolved']})")
     col_open, col_progress, col_resolved = st.columns(3)
     stages = {"Open": col_open, "In Progress": col_progress, "Resolved": col_resolved}
 
     for case in filtered_cases:
         status = case.get("Status", "Open")
-        if status not in stages:
-            status = "Open"
         with stages[status]:
             st.markdown("----")
-            st.markdown(f"**\ud83d\udd37 Escalation ID: {case['Escalation ID']}**")
-            st.markdown(f"**\ud83d\udcbe Issue:** {case['Issue']}")
-            st.write(f"\ud83d\udc64 **Customer:** {case['Customer']}")
-            st.write(f"\ud83d\udd25 **Criticality:** `{case['Criticality']}`")
-            st.write(f"\ud83d\udcc5 **Reported:** `{case['Date Reported']}`")
-            st.write(f"\ud83d\udc64 **Owner:** `{case['Owner']}`")
-            st.write(f"\u2705 **Escalated:** `{case['Escalated']}`")
+            st.markdown(f"**🔷 Escalation ID: {case['Escalation ID']}**")
+            st.markdown(f"**🧾 Issue:** {case['Issue']}")
+            st.write(f"👤 **Customer**: {case['Customer']}")
+            st.write(f"🔥 **Criticality**: `{case['Criticality']}`")
+            st.write(f"📅 **Reported**: `{case['Date Reported']}`")
+            st.write(f"👤 **Owner**: `{case.get('Owner', 'N/A')}`")
+            st.write(f"✅ **Escalated**: `{case['Escalated']}`")
+
             new_status = st.selectbox(
                 "Update Status",
                 ["Open", "In Progress", "Resolved"],
@@ -124,11 +120,11 @@ def show_kanban():
 # ---------------------------------
 # Main App Logic
 # ---------------------------------
-st.title("\ud83d\udea8 EscalateAI - Escalation Tracking System")
+st.title("EscalateAI - Escalation Tracking System")
 
-# Sidebar: Excel Upload & Manual Entry
+# Sidebar: Upload or Manual Entry
 with st.sidebar:
-    st.header("\ud83d\udcc5 Upload Escalation Tracker")
+    st.header("📥 Upload Escalation Tracker")
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
     if file is not None:
@@ -141,47 +137,29 @@ with st.sidebar:
         if missing_cols:
             st.error(f"Excel file is missing required columns: {', '.join(missing_cols)}")
         else:
-            if st.button("\ud83d\udd0d Analyze Issues & Log Escalations"):
+            if st.button("🔍 Analyze Issues & Log Escalations"):
                 for _, row in df.iterrows():
-                    sentiment, urgency, escalated = analyze_issue(row["brief issue"])
+                    sentiment, urgency, escalated = analyze_issue(str(row["brief issue"]))
                     log_case(row, sentiment, urgency, escalated)
                 st.success("Escalations auto-logged from Excel file!")
 
-    st.header("\u270f\ufe0f Manual Entry")
+    st.header("✏️ Manual Entry")
     with st.form(key="manual_entry_form"):
         customer_name = st.text_input("Customer Name")
         issue = st.text_area("Issue")
         criticality = st.selectbox("Criticality", ["Low", "Medium", "High"])
-        impact = st.selectbox("Impact", ["Low", "Medium", "High"])
         action_owner = st.text_input("Action Owner")
         date_reported = st.date_input("Date Reported")
-
         submit_button = st.form_submit_button("Log Escalation")
 
         if submit_button:
             if customer_name and issue:
                 sentiment, urgency, escalated = analyze_issue(issue)
                 log_case({
-                    "Customer": customer_name,
-                    "Brief Issue": issue,
-                    "Criticalness": criticality,
-                    "Impact": impact,
-                    "Owner": action_owner,
-                    "Issue reported date": date_reported,
-                }, sentiment, urgency, escalated)
-                st.success("Escalation logged successfully!")
-            else:
-                st.error("Please fill all fields.")
-
-# Display Kanban Board
-show_kanban()
-
-# Option to download escalations
-if "cases" in st.session_state and st.session_state.cases:
-    df_cases = pd.DataFrame(st.session_state.cases)
-    st.download_button(
-        label="Download Escalations as Excel",
-        data=df_cases.to_excel(index=False, engine="openpyxl"),
-        file_name="escalations.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+                    "customer": customer_name,
+                    "brief issue": issue,
+                    "criticalness": criticality,
+                    "owner": action_owner,
+                    "issue reported date": date_reported,
+                    "status": "Open"
+                }, sentiment, urgency,
