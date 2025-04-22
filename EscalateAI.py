@@ -55,6 +55,8 @@ def log_case(row, sentiment, urgency, escalated):
         "Status": row.get("Status", "Open"),
     }
 
+    print(f"Logging case: {case}")  # Debugging line to verify data
+
     st.session_state.cases.append(case)
 
 # ---------------------------------
