@@ -21,13 +21,13 @@ def analyze_issue(text):
     return sentiment, urgency, escalation
 
 # ---------------------------------
-# Generate Unique Escalation ID in CESI-XXXXXX Format
+# Generate Unique Escalation ID in SESICE-XXXXX Format
 # ---------------------------------
 def generate_escalation_id():
     if "last_id" not in st.session_state:
         st.session_state.last_id = 0
     st.session_state.last_id += 1
-    return f"CESI-{st.session_state.last_id:06d}"
+    return f"SESICE-{st.session_state.last_id:05d}"
 
 # ---------------------------------
 # Logging Escalations
@@ -49,6 +49,28 @@ def log_case(row, sentiment, urgency, escalation):
         "Urgency": urgency,
         "Escalated": escalation,
     })
+
+# ---------------------------------
+# Customer-Wise Analytics
+# ---------------------------------
+def customer_wise_analytics():
+    if "cases" not in st.session_state or not st.session_state.cases:
+        st.info("No cases to analyze.")
+        return
+
+    # Create a DataFrame from the cases logged
+    df = pd.DataFrame(st.session_state.cases)
+
+    # Group by Customer
+    customer_grouped = df.groupby("Customer").agg(
+        total_escalations=("ID", "count"),
+        escalated_cases=("Escalated", "sum"),
+        avg_sentiment=("Sentiment", lambda x: x.value_counts().idxmax()),  # Most frequent sentiment
+        avg_urgency=("Urgency", lambda x: x.value_counts().idxmax()),  # Most frequent urgency
+    ).reset_index()
+
+    st.subheader("📊 Customer-Wise Analytics")
+    st.write(customer_grouped)
 
 # ---------------------------------
 # Display Kanban Board
@@ -194,6 +216,11 @@ if file:
                 st.warning("🚨 Escalation Triggered!")
             else:
                 st.success("Logged without escalation.")
+
+# ---------------------------------
+# Show Analytics
+# ---------------------------------
+customer_wise_analytics()
 
 # ---------------------------------
 # Display Kanban Board
