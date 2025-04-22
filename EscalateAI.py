@@ -12,15 +12,12 @@ st.set_page_config(page_title="EscalateAI - Escalation Tracking", layout="wide")
 def analyze_issue(text):
     text_lower = text.lower()
     
-    # Improved negative sentiment detection using regex
     negative_words = [
         r"\b(problematic|delay|issue|failure|dissatisfaction|frustration|unacceptable|mistake|complaint|unresolved|unresponsive|unstable|broken|defective|overdue|escalation|leakage|damage|burnt|critical|risk|dispute|faulty)\b"
     ]
     
     sentiment = "Negative" if any(re.search(word, text_lower) for word in negative_words) else "Positive"
-    
     urgency = "High" if any(word in text_lower for word in ["urgent", "critical", "immediately", "business impact"]) else "Low"
-    
     escalation = sentiment == "Negative" and urgency == "High"
     
     return sentiment, urgency, escalation
@@ -43,6 +40,7 @@ def log_case(row, sentiment, urgency, escalation):
     st.session_state.cases.append({
         "Escalation ID": escalation_id,
         "Customer": row.get("customer", "N/A"),
+        "Criticality": row.get("criticalness", "N/A"),
         "Issue": row.get("brief issue", "N/A"),
         "Sentiment": sentiment,
         "Urgency": urgency,
@@ -53,27 +51,36 @@ def log_case(row, sentiment, urgency, escalation):
     })
 
 # ---------------------------------
-# Show Kanban Board with Improved Graphics
+# Show Kanban Board with Counts
 # ---------------------------------
 def show_kanban():
     if "cases" not in st.session_state or not st.session_state.cases:
         st.info("No escalations logged yet.")
         return
 
-    st.subheader("🗂️ Escalation Kanban Board")
+    # Count cases by status
+    status_counts = {
+        "Open": sum(1 for case in st.session_state.cases if case["Status"] == "Open"),
+        "In Progress": sum(1 for case in st.session_state.cases if case["Status"] == "In Progress"),
+        "Resolved": sum(1 for case in st.session_state.cases if case["Status"] == "Resolved"),
+    }
+
+    st.subheader(f"🗂️ Escalation Kanban Board (Open: {status_counts['Open']} | In Progress: {status_counts['In Progress']} | Resolved: {status_counts['Resolved']})")
+    
     cols = st.columns(3)
     stages = {"Open": cols[0], "In Progress": cols[1], "Resolved": cols[2]}
 
     for case in st.session_state.cases:
         status = case.get("Status", "Open")
         if status not in stages:
-            st.warning(f"Invalid status detected: {status}. Defaulting to 'Open'.")
-            status = "Open"
-
+            status = "Open"  # Default to Open for any invalid status
+        
         with stages[status]:  
             st.markdown("----")
+            st.markdown(f"**🔷 Escalation ID: {case['Escalation ID']}**")
             st.markdown(f"**🧾 Issue: {case['Issue']}**")
-            st.write(f"🔹 Sentiment: `{case['Sentiment']}` | Urgency: `{case['Urgency']}`")
+            st.write(f"👤 **Customer**: {case['Customer']}")
+            st.write(f"🔥 **Criticality**: `{case['Criticality']}`")
             st.write(f"📅 Reported: {case['Date Reported']} | 👤 Owner: {case.get('Owner', 'N/A')}")
             st.write(f"✅ Escalated: {case['Escalated']}")
 
@@ -84,7 +91,7 @@ def show_kanban():
                 key=f"{case['Escalation ID']}_status"
             )
             
-            case["Status"] = new_status  
+            case["Status"] = new_status  # Move case to the correct bucket when status changes
 
 # ---------------------------------
 # Main App Logic
@@ -100,7 +107,7 @@ with st.sidebar:
         df = pd.read_excel(file)
         df.columns = df.columns.str.strip().str.lower().str.replace(" +", " ", regex=True)
 
-        required_cols = {"customer", "brief issue", "issue reported date", "status", "owner"}
+        required_cols = {"customer", "brief issue", "issue reported date", "status", "owner", "criticalness"}
         missing_cols = required_cols - set(df.columns)
 
         if missing_cols:
@@ -138,7 +145,7 @@ with st.sidebar:
             else:
                 st.error("Please fill all fields.")
 
-# Display Kanban Board
+# Display Kanban Board with Counts
 show_kanban()
 
 # Option to download escalations
