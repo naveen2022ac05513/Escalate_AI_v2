@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import re
-from io import BytesIO
 
 # Set page configuration
 st.set_page_config(page_title="EscalateAI - Escalation Tracking", layout="wide")
@@ -10,8 +9,12 @@ st.set_page_config(page_title="EscalateAI - Escalation Tracking", layout="wide")
 # Sentiment Analysis for Issue Detection
 # ---------------------------------
 def analyze_issue(text):
+    if not isinstance(text, str):
+        # If the issue is not a string, handle it gracefully (e.g., consider it as neutral)
+        return "Neutral", "Low", False
+
     text_lower = text.lower()
-    
+
     negative_words = [
         r"\b(problematic|delay|issue|failure|dissatisfaction|frustration|unacceptable|mistake|complaint|unresolved|unresponsive|unstable|broken|defective|overdue|escalation|leakage|damage|burnt|critical|risk|dispute|faulty)\b"
     ]
@@ -41,45 +44,39 @@ def log_case(row, sentiment, urgency, escalation):
         st.session_state.cases = []
     
     escalation_id = generate_escalation_id()
-
-    # Removed the print statement here to prevent logging case data in sidebar
-    case = {
+    
+    st.session_state.cases.append({
         "Escalation ID": escalation_id,
-        "Customer": row.get("customer", "N/A"),  # Ensure correct column names
-        "Criticality": row.get("criticalness", "N/A"),
-        "Issue": row.get("brief issue", "N/A"),
+        "Customer": row.get("Customer", "N/A"),
+        "Criticality": row.get("Criticalness", "N/A"),
+        "Issue": row.get("Brief Issue", "N/A"),
         "Sentiment": sentiment,
         "Urgency": urgency,
         "Escalated": escalation,
-        "Date Reported": row.get("issue reported date", "N/A"),
-        "Owner": row.get("owner", "N/A"),
-        "Status": row.get("status", "Open"),
-    }
-
-    # Check if critical fields like Customer, Issue are missing
-    if case["Customer"] == "N/A" or case["Issue"] == "N/A":
-        st.warning(f"Escalation missing required fields: {case['Escalation ID']} will not be logged.")
-    else:
-        st.session_state.cases.append(case)
+        "Date Reported": row.get("Issue reported date", "N/A"),
+        "Owner": row.get("Owner", "N/A"),
+        "Status": row.get("Status", "Open"),
+    })
 
 # ---------------------------------
-# Show Kanban Board with Filters
+# Show Kanban Board with Correct Ordering
 # ---------------------------------
 def show_kanban():
     if "cases" not in st.session_state or not st.session_state.cases:
         st.info("No escalations logged yet.")
         return
 
-    # Filters for Criticality and Escalation
-    criticality_filter = st.selectbox("Filter by Criticality", ["All", "Low", "Medium", "High"], index=0)
-    escalated_filter = st.selectbox("Filter by Escalated", ["All", "Yes", "No"], index=0)
+    # Filter by Criticality
+    criticality_filter = st.sidebar.selectbox("Filter by Criticality", ["All", "Low", "Medium", "High"])
+    escalated_filter = st.sidebar.selectbox("Filter by Escalated", ["All", "True", "False"])
 
+    # Filter cases
     filtered_cases = st.session_state.cases
     if criticality_filter != "All":
         filtered_cases = [case for case in filtered_cases if case["Criticality"] == criticality_filter]
     if escalated_filter != "All":
-        escalated = escalated_filter == "Yes"
-        filtered_cases = [case for case in filtered_cases if case["Escalated"] == escalated]
+        escalated_bool = escalated_filter == "True"
+        filtered_cases = [case for case in filtered_cases if case["Escalated"] == escalated_bool]
 
     # Count cases by status
     status_counts = {
@@ -105,8 +102,7 @@ def show_kanban():
             st.markdown(f"**🧾 Issue: {case['Issue']}**")
             st.write(f"👤 **Customer**: `{case['Customer']}`")
             st.write(f"🔥 **Criticality**: `{case['Criticality']}`")
-            # Exclude Date Reported from Kanban display
-            # st.write(f"📅 Reported: `{case['Date Reported']}`")
+            st.write(f"📅 Reported: `{case['Date Reported']}`")
             st.write(f"👤 **Owner**: `{case.get('Owner', 'N/A')}`")
             st.write(f"✅ Escalated: `{case['Escalated']}`")
 
@@ -140,15 +136,13 @@ with st.sidebar:
         if missing_cols:
             st.error(f"Excel file is missing required columns: {', '.join(missing_cols)}")
         else:
-            # Debugging: Check the columns from the uploaded file
-            st.write("Uploaded columns: ", df.columns)
-
             if st.button("🔍 Analyze Issues & Log Escalations"):
                 for _, row in df.iterrows():
                     sentiment, urgency, escalated = analyze_issue(row["brief issue"])
                     log_case(row, sentiment, urgency, escalated)
                 st.success("Escalations auto-logged from Excel file!")
 
+# Manual Entry
     st.header("✏️ Manual Entry")
     with st.form(key="manual_entry_form"):
         customer_name = st.text_input("Customer Name")
@@ -178,17 +172,12 @@ with st.sidebar:
 # Display Kanban Board
 show_kanban()
 
-# Option to download escalations as Excel
+# Option to download escalations
 if "cases" in st.session_state and st.session_state.cases:
     df_cases = pd.DataFrame(st.session_state.cases)
-
-    # Create a BytesIO buffer
-    buffer = BytesIO()
-    df_cases.to_excel(buffer, index=False, engine="openpyxl")
-    buffer.seek(0)  # Rewind to start
     st.download_button(
         label="Download Escalations as Excel",
-        data=buffer,
+        data=df_cases.to_excel(index=False, engine="openpyxl"),
         file_name="escalations.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
