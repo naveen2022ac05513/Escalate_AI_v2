@@ -103,7 +103,24 @@ def download_excel():
 # ---------------------------------
 # Main App Logic
 # ---------------------------------
-st.markdown('<h1 style="text-align: center; color: #2F4F4F;">🚨 **EscalateAI - Escalation Tracking System**</h1>', unsafe_allow_html=True)
+
+# Freeze header with custom CSS
+st.markdown("""
+    <style>
+        .stApp { 
+            padding-top: 100px; 
+        }
+        header {
+            position: sticky;
+            top: 0;
+            background-color: #2F4F4F;
+            padding: 10px;
+            z-index: 10;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown('<h1 style="text-align: center; color: white;">🚨 **EscalateAI - Escalation Tracking System**</h1>', unsafe_allow_html=True)
 
 # Create two columns (1 for manual entry/upload, 2 for Kanban board)
 col1, col2 = st.columns([1, 3])  # Increase width for the Kanban board (3) and manual entry/upload (1)
