@@ -210,7 +210,7 @@ if "cases" in st.session_state and st.session_state.cases:
     st.subheader("📤 Export Escalations")
     st.download_button(
         label="⬇️ Download Escalations as Excel",
-        data=df_export.to_excel(index=False, engine='openpyxl'),
+        data=df_export.to_excel(index=False),  # Removed engine='openpyxl'
         file_name="escalations.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
