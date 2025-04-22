@@ -1,14 +1,21 @@
 import streamlit as st
 import pandas as pd
+import random
+import string
+from io import BytesIO
 
-# ---------------------------------
 # Set Page Configuration
-# ---------------------------------
 st.set_page_config(page_title="EscalateAI", layout="wide")
 
 # ---------------------------------
-# NLP-Based Issue Analysis
+# Helper Functions
 # ---------------------------------
+
+# Generate a unique escalation ID in the format SESICE-XXXXX
+def generate_escalation_id():
+    return f"SESICE-{''.join(random.choices(string.ascii_uppercase + string.digits, k=5))}"
+
+# Analyze the issue using NLP (sentiment, urgency, and escalation)
 def analyze_issue(text):
     text_lower = text.lower()
     sentiment = "Negative" if any(
@@ -20,23 +27,13 @@ def analyze_issue(text):
     escalation = sentiment == "Negative" and urgency == "High"
     return sentiment, urgency, escalation
 
-# ---------------------------------
-# Generate Unique Escalation ID in SESICE-XXXXX Format
-# ---------------------------------
-def generate_escalation_id():
-    if "last_id" not in st.session_state:
-        st.session_state.last_id = 0
-    st.session_state.last_id += 1
-    return f"SESICE-{st.session_state.last_id:05d}"
-
-# ---------------------------------
-# Logging Escalations
-# ---------------------------------
+# Logging the case into the session state
 def log_case(row, sentiment, urgency, escalation):
     if "cases" not in st.session_state:
         st.session_state.cases = []
-
+    
     escalation_id = generate_escalation_id()
+    
     st.session_state.cases.append({
         "ID": escalation_id,
         "Brief Issue": row["brief issue"],
@@ -50,30 +47,25 @@ def log_case(row, sentiment, urgency, escalation):
         "Escalated": escalation,
     })
 
-# ---------------------------------
-# Customer-Wise Analytics
-# ---------------------------------
-def customer_wise_analytics():
+# Export escalations to Excel
+def export_to_excel():
     if "cases" not in st.session_state or not st.session_state.cases:
-        st.info("No cases to analyze.")
+        st.warning("No data available to export.")
         return
-
-    # Create a DataFrame from the cases logged
-    df = pd.DataFrame(st.session_state.cases)
-
-    # Group by Customer
-    customer_grouped = df.groupby("Customer").agg(
-        total_escalations=("ID", "count"),
-        escalated_cases=("Escalated", "sum"),
-        avg_sentiment=("Sentiment", lambda x: x.value_counts().idxmax()),  # Most frequent sentiment
-        avg_urgency=("Urgency", lambda x: x.value_counts().idxmax()),  # Most frequent urgency
-    ).reset_index()
-
-    st.subheader("📊 Customer-Wise Analytics")
-    st.write(customer_grouped)
+    
+    df_export = pd.DataFrame(st.session_state.cases)
+    towrite = BytesIO()
+    df_export.to_excel(towrite, index=False, engine='openpyxl')
+    towrite.seek(0)
+    st.download_button(
+        label="Download Escalations",
+        data=towrite,
+        file_name="escalations.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 # ---------------------------------
-# Display Kanban Board
+# Show Kanban Board
 # ---------------------------------
 def show_kanban():
     if "cases" not in st.session_state or not st.session_state.cases:
@@ -86,12 +78,21 @@ def show_kanban():
     cols = st.columns(3)
     stages = {"Open": cols[0], "In Progress": cols[1], "Resolved": cols[2]}
 
+    # Define the valid statuses
+    valid_statuses = ["Open", "In Progress", "Resolved"]
+
     with cols[0]: st.markdown("### 🟡 Open")
     with cols[1]: st.markdown("### 🟠 In Progress")
     with cols[2]: st.markdown("### ✅ Resolved")
 
     for i, case in enumerate(st.session_state.cases):
         status = case["Status"]
+
+        # Check if the status is valid, else skip the case
+        if status not in valid_statuses:
+            st.warning(f"⚠️ Invalid status found for case ID {case['ID']}. Skipping this case.")
+            continue
+
         bg_color = (
             "#ffe0e0" if case["Escalated"] else
             "#fff7e6" if case["Urgency"] == "High" else
@@ -130,86 +131,35 @@ def show_kanban():
                 st.session_state.cases[i]["Status"] = new_status
 
 # ---------------------------------
-# UI Header
+# Main App Logic
 # ---------------------------------
-st.title("🚨 EscalateAI - Customer Escalation Tracker")
+st.title("🚨 EscalateAI - Generic Escalation Tracking")
 
-# ---------------------------------
-# Sidebar - File Upload and Manual Entry
-# ---------------------------------
 with st.sidebar:
-    st.header("📥 Upload Escalation Tracker (Excel)")
+    st.header("📥 Upload Escalation Tracker")
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
-    st.markdown("---")
-    st.header("📝 Quick Manual Entry")
-    manual_issue = st.text_area("Enter Customer Issue")
-
-    if st.button("Analyze Manual Issue"):
-        if manual_issue.strip():
-            sentiment, urgency, escalated = analyze_issue(manual_issue)
-            row = {
-                "brief issue": manual_issue,
-                "customer": "Manual Entry",
-                "issue reported date": pd.Timestamp.now().strftime("%Y-%m-%d"),
-                "action taken": "N/A",
-                "owner": "Unassigned",
-                "status": "Open"
-            }
-            log_case(row, sentiment, urgency, escalated)
-            if escalated:
-                st.warning("🚨 Escalation Triggered!")
-            else:
-                st.success("Logged without escalation.")
-        else:
-            st.error("Please enter an issue before analyzing.")
-
-    st.markdown("---")
-    with st.expander("➕ Detailed Manual Entry"):
-        customer = st.text_input("Customer Name")
-        detailed_issue = st.text_area("Issue Description")
-        owner = st.text_input("Owner")
-        if st.button("Add Detailed Issue"):
-            if detailed_issue.strip():
-                sentiment, urgency, escalated = analyze_issue(detailed_issue)
-                row = {
-                    "brief issue": detailed_issue,
-                    "customer": customer or "Manual",
-                    "issue reported date": pd.Timestamp.now().strftime("%Y-%m-%d"),
-                    "action taken": "N/A",
-                    "owner": owner or "Unassigned",
-                    "status": "Open"
-                }
-                log_case(row, sentiment, urgency, escalated)
-                if escalated:
-                    st.warning("🚨 Escalation Triggered!")
-                else:
-                    st.success("Issue logged.")
-            else:
-                st.error("Issue description cannot be empty.")
-
-# ---------------------------------
-# File-based Case Logging
-# ---------------------------------
 if file:
     df = pd.read_excel(file)
+
+    # Normalize column names: Remove extra spaces, convert to lowercase for comparison
     df.columns = df.columns.str.strip().str.lower().str.replace(" +", " ", regex=True)
 
     required_cols = {"brief issue"}
     missing_cols = required_cols - set(df.columns)
 
     if missing_cols:
-        st.error("The uploaded Excel file must contain at least a 'brief issue' column.")
+        st.error("The uploaded Excel file must contain at least an 'Issue' column.")
     else:
         df["selector"] = df["brief issue"].astype(str)
-        selected = st.selectbox("Select Case from Excel", df["selector"])
+        selected = st.selectbox("Select Case", df["selector"])
         row = df[df["selector"] == selected].iloc[0]
 
         st.subheader("📄 Issue Details")
         for col in df.columns:
             st.write(f"**{col.capitalize()}:** {row.get(col, 'N/A')}")
 
-        if st.button("🔍 Analyze & Log Selected Case"):
+        if st.button("🔍 Analyze & Log Escalation"):
             sentiment, urgency, escalated = analyze_issue(row["brief issue"])
             log_case(row, sentiment, urgency, escalated)
             if escalated:
@@ -217,27 +167,8 @@ if file:
             else:
                 st.success("Logged without escalation.")
 
-# ---------------------------------
-# Show Analytics
-# ---------------------------------
-customer_wise_analytics()
-
-# ---------------------------------
-# Display Kanban Board
-# ---------------------------------
+# Show Kanban board
 show_kanban()
 
-# ---------------------------------
-# Export Escalations to Excel
-# ---------------------------------
-if "cases" in st.session_state and st.session_state.cases:
-    df_export = pd.DataFrame(st.session_state.cases)
-
-    st.markdown("---")
-    st.subheader("📤 Export Escalations")
-    st.download_button(
-        label="⬇️ Download Escalations as Excel",
-        data=df_export.to_excel(index=False),  # Removed engine='openpyxl'
-        file_name="escalations.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+# Export escalations to Excel
+export_to_excel()
