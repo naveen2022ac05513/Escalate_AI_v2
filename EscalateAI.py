@@ -9,12 +9,8 @@ st.set_page_config(page_title="EscalateAI - Escalation Tracking", layout="wide")
 # Sentiment Analysis for Issue Detection
 # ---------------------------------
 def analyze_issue(text):
-    if not isinstance(text, str):
-        # If the issue is not a string, handle it gracefully (e.g., consider it as neutral)
-        return "Neutral", "Low", False
-
     text_lower = text.lower()
-
+    
     negative_words = [
         r"\b(problematic|delay|issue|failure|dissatisfaction|frustration|unacceptable|mistake|complaint|unresolved|unresponsive|unstable|broken|defective|overdue|escalation|leakage|damage|burnt|critical|risk|dispute|faulty)\b"
     ]
@@ -59,24 +55,19 @@ def log_case(row, sentiment, urgency, escalation):
     })
 
 # ---------------------------------
-# Show Kanban Board with Correct Ordering
+# Show Kanban Board with Correct Ordering and Filtering
 # ---------------------------------
-def show_kanban():
+def show_kanban(criticality_filter=None, escalated_filter=None):
     if "cases" not in st.session_state or not st.session_state.cases:
         st.info("No escalations logged yet.")
         return
 
-    # Filter by Criticality
-    criticality_filter = st.sidebar.selectbox("Filter by Criticality", ["All", "Low", "Medium", "High"])
-    escalated_filter = st.sidebar.selectbox("Filter by Escalated", ["All", "True", "False"])
-
-    # Filter cases
+    # Filter by Criticality and Escalated status if filters are provided
     filtered_cases = st.session_state.cases
-    if criticality_filter != "All":
+    if criticality_filter:
         filtered_cases = [case for case in filtered_cases if case["Criticality"] == criticality_filter]
-    if escalated_filter != "All":
-        escalated_bool = escalated_filter == "True"
-        filtered_cases = [case for case in filtered_cases if case["Escalated"] == escalated_bool]
+    if escalated_filter is not None:
+        filtered_cases = [case for case in filtered_cases if case["Escalated"] == escalated_filter]
 
     # Count cases by status
     status_counts = {
@@ -142,7 +133,6 @@ with st.sidebar:
                     log_case(row, sentiment, urgency, escalated)
                 st.success("Escalations auto-logged from Excel file!")
 
-# Manual Entry
     st.header("✏️ Manual Entry")
     with st.form(key="manual_entry_form"):
         customer_name = st.text_input("Customer Name")
@@ -169,12 +159,25 @@ with st.sidebar:
             else:
                 st.error("Please fill all fields.")
 
-# Display Kanban Board
-show_kanban()
+    # Filtering Options
+    st.sidebar.header("🧩 Filter Kanban Board")
+    criticality_filter = st.sidebar.selectbox("Filter by Criticality", ["All", "Low", "Medium", "High"])
+    escalated_filter = st.sidebar.selectbox("Filter by Escalation", ["All", "True", "False"])
+
+# Display Kanban Board with Filters
+show_kanban(
+    criticality_filter=criticality_filter if criticality_filter != "All" else None,
+    escalated_filter=True if escalated_filter == "True" else (False if escalated_filter == "False" else None)
+)
 
 # Option to download escalations
 if "cases" in st.session_state and st.session_state.cases:
     df_cases = pd.DataFrame(st.session_state.cases)
+    
+    # Ensure no NaN values in the DataFrame (if needed, you can drop or fill NaNs here)
+    df_cases = df_cases.fillna('N/A')  # Fill any NaN values with 'N/A' or a value of your choice
+
+    # Allow user to download as Excel
     st.download_button(
         label="Download Escalations as Excel",
         data=df_cases.to_excel(index=False, engine="openpyxl"),
