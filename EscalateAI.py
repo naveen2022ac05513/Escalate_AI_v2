@@ -84,11 +84,13 @@ def show_kanban():
             st.markdown("----")
             st.markdown(f"**🔷 Escalation ID: {case['Escalation ID']}**")
             st.markdown(f"**🧾 Issue: {case['Issue']}**")
-            st.write(f"👤 **Customer**: {case['Customer']}")
+            st.write(f"👤 **Customer**: `{case['Customer']}`")
             st.write(f"🔥 **Criticality**: `{case['Criticality']}`")
-            st.write(f"📅 Reported: {case['Date Reported']} | 👤 Owner: {case.get('Owner', 'N/A')}")
-            st.write(f"✅ Escalated: {case['Escalated']}")
+            st.write(f"📅 Reported: `{case['Date Reported']}`")
+            st.write(f"👤 **Owner**: `{case.get('Owner', 'N/A')}`")
+            st.write(f"✅ Escalated: `{case['Escalated']}`")
 
+            # Allow status updates
             new_status = st.selectbox(
                 "Update Status",
                 ["Open", "In Progress", "Resolved"],
