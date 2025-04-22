@@ -105,10 +105,10 @@ def download_excel():
 # ---------------------------------
 st.markdown('<h1 style="text-align: center; color: #2F4F4F;">🚨 **EscalateAI - Escalation Tracking System**</h1>', unsafe_allow_html=True)
 
-# Upload and Manual Entry Form Layout
-col1, col2 = st.columns([2, 1])  # Create two columns (2 for upload and kanban, 1 for manual entry)
+# Create two columns (1 for manual entry/upload, 2 for Kanban board)
+col1, col2 = st.columns([1, 3])  # Increase width for the Kanban board (3) and manual entry/upload (1)
 
-# Upload Excel Tracker
+# Manual Entry and Upload Excel Tracker on the left (col1)
 with col1:
     st.subheader("📤 **Upload Escalation Tracker**")
     uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx"])
@@ -117,8 +117,6 @@ with col1:
         st.write(df)
         download_excel()
 
-# Manual Entry Form underneath the upload section
-with col2:
     st.subheader("📝 **Manual Entry - Log Escalation**")
     with st.form(key="manual_entry_form"):
         customer_name = st.text_input("Customer Name")
@@ -143,8 +141,9 @@ with col2:
                 }
                 log_case(row, sentiment, urgency, escalated)
 
-# Display Kanban Board
-show_kanban()
+# Kanban Board on the right (col2)
+with col2:
+    show_kanban()
 
-# Download Button
+# Download Button at the bottom
 download_excel()
