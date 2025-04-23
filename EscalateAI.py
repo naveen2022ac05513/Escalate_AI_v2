@@ -12,7 +12,7 @@ def analyze_issue(text):
     text_lower = text.lower()
 
     negative_words = [
-        r"\b(problematic|delay|issue|failure|dissatisfaction|frustration|unacceptable|mistake|complaint|unresolved|unresponsive|unstable|broken|defective|overdue|escalation|leakage|damage|burnt|critical|risk|dispute|faulty)\b"
+        r"\b(flashover|problematic|delay|issue|failure|dissatisfaction|frustration|unacceptable|mistake|complaint|unresolved|unresponsive|unstable|broken|defective|overdue|escalation|leakage|damage|burnt|critical|risk|dispute|faulty)\b"
     ]
 
     sentiment = "Negative" if any(re.search(word, text_lower) for word in negative_words) else "Positive"
@@ -92,7 +92,7 @@ def show_kanban():
             st.markdown(f"**🧾 Issue: {case['Issue']}**")
             st.write(f"👤 **Customer**: `{case['Customer']}`")
             st.write(f"🔥 **Criticality**: `{case['Criticality']}`")
-            st.write(f"📅 Reported: `{case['Date Reported']}`")
+            st.write(f"📅 Reported: `{case['Date Reported']}`")  # Display issue reported date
             st.write(f"👤 **Owner**: `{case.get('Owner', 'N/A')}`")
             st.write(f"✅ Escalated: `{case['Escalated']}`")
             st.write(f"🔧 **Action Taken**: `{case['Action Taken']}`")  # Display action taken
@@ -106,6 +106,7 @@ def show_kanban():
             )
 
             case["Status"] = new_status  # Update status in session state
+
             # Allow action taken updates
             new_action_taken = st.text_area(
                 "Update Action Taken",
