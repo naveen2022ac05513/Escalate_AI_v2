@@ -12,7 +12,7 @@ def analyze_issue(text):
     text_lower = text.lower()
 
     negative_words = [
-        r"\b(flashover|problematic|delay|issue|failure|dissatisfaction|frustration|unacceptable|mistake|complaint|unresolved|unresponsive|unstable|broken|defective|overdue|escalation|leakage|damage|burnt|critical|risk|dispute|faulty)\b"
+        r"\b(problematic|delay|issue|failure|dissatisfaction|frustration|unacceptable|mistake|complaint|unresolved|unresponsive|unstable|broken|defective|overdue|escalation|leakage|damage|burnt|critical|risk|dispute|faulty)\b"
     ]
 
     sentiment = "Negative" if any(re.search(word, text_lower) for word in negative_words) else "Positive"
@@ -31,7 +31,6 @@ def generate_escalation_id():
     escalation_id = f"ESC-{st.session_state.escalation_counter}"
     st.session_state.escalation_counter += 1  # Increment for the next entry
     return escalation_id
-
 # ---------------------------------
 # Log Escalation
 # ---------------------------------
@@ -50,7 +49,7 @@ def log_case(row, sentiment, urgency, escalated):
         "Sentiment": sentiment,
         "Urgency": urgency,
         "Escalated": escalated,
-        "Date Reported": row.get("Issue reported date", row.get("Date Reported", "Unknown")),
+        "Date Reported": row.get("Issue reported date", row.get("issue reported date", "Unknown")),  # Ensure correct field extraction
         "Owner": row.get("Owner", row.get("owner", "Unknown")),
         "Status": row.get("Status", "Open"),
         "Action Taken": row.get("Action Taken", "None")  # New field for action taken
@@ -96,7 +95,6 @@ def show_kanban():
             st.write(f"👤 **Owner**: `{case.get('Owner', 'N/A')}`")
             st.write(f"✅ Escalated: `{case['Escalated']}`")
             st.write(f"🔧 **Action Taken**: `{case['Action Taken']}`")  # Display action taken
-
             # Allow status updates
             new_status = st.selectbox(
                 "Update Status",
