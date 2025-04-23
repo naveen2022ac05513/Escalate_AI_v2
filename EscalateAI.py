@@ -53,6 +53,7 @@ def log_case(row, sentiment, urgency, escalated):
         "Date Reported": row.get("Issue reported date", row.get("Date Reported", "Unknown")),
         "Owner": row.get("Owner", row.get("owner", "Unknown")),
         "Status": row.get("Status", "Open"),
+        "Action Taken": row.get("Action Taken", "None")  # New field for action taken
     }
 
     print(f"Logging case: {case}")  # Debugging line to verify data
@@ -94,6 +95,7 @@ def show_kanban():
             st.write(f"📅 Reported: `{case['Date Reported']}`")
             st.write(f"👤 **Owner**: `{case.get('Owner', 'N/A')}`")
             st.write(f"✅ Escalated: `{case['Escalated']}`")
+            st.write(f"🔧 **Action Taken**: `{case['Action Taken']}`")  # Display action taken
 
             # Allow status updates
             new_status = st.selectbox(
@@ -104,6 +106,14 @@ def show_kanban():
             )
 
             case["Status"] = new_status  # Update status in session state
+            # Allow action taken updates
+            new_action_taken = st.text_area(
+                "Update Action Taken",
+                value=case["Action Taken"],
+                key=f"{case['Escalation ID']}_action_taken"
+            )
+
+            case["Action Taken"] = new_action_taken  # Update action taken in session state
 
 # ---------------------------------
 # Main App Logic
